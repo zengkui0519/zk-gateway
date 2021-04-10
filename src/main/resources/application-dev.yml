@@ -1,0 +1,84 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  application:
+    name: gateway-service
+  cloud:        # spring cloud gateway 路由配置方式
+    gateway:
+      discovery:      #是否与服务发现组件进行结合，通过 serviceId(必须设置成大写) 转发到具体的服务实例。默认为false，设为true便开启通过服务中心的自动根据 serviceId 创建路由的功能。
+        locator:      #路由访问方式：http://Gateway_HOST:Gateway_PORT/大写的serviceId/**，其中微服务应用名默认大写访问。
+          enabled: true
+      filter:
+        secureHeaders:
+          disable: xss-protection-header
+      routes:
+        # 网关路由到base服务
+        - id: SPRING-ZK-BASE-PROVIDE
+          uri: lb://ZK-BASE-SERVICE
+          predicates:
+            - Path=/gw/base/**
+          filters:
+            # 访问localhost:8080/gw/base, 请求会转发到localhost:8001/base
+            - RewritePath=/gw/, /
+          # 网关路由到base服务
+        - id: SPRING-ZK-EDU-PROVIDE
+          uri: lb://ZK-EDU-SERVICE
+          predicates:
+            - Path=/gw/edu/**
+          filters:
+            # 访问localhost:8080/gw/base, 请求会转发到localhost:8001/base
+            - RewritePath=/gw/, /
+
+server:
+  port: 20002
+#  servlet:
+#    context-path: /gw # 设置项目访问路径
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://127.0.0.1:20001/eureka/
+    instance-info-replication-interval-seconds: 5 #刷新本地的服务注册信息时间间隔
+    registry-fetch-interval-seconds: 5 #拉取服务注册信息
+  instance:
+    prefer-ip-address: true #以IP地址注册到服务中心
+    instance-id: ${spring.cloud.client.ip-address}:${server.port} #显示的实例名
+    #Eureka客户端向服务端发送心跳的时间间隔，单位为秒（客户端告诉服务端自己会按照该规则），默认30
+    lease-renewal-interval-in-seconds: 1
+    #Eureka服务端在收到最后一次心跳之后等待的时间上限，单位为秒，超过则剔除（客户端告诉服务端按照此规则等待自己），默认90
+    lease-expiration-duration-in-seconds: 3
+
+logging:
+  level:
+    org.springframework.cloud.gateway: trace
+    #org.springframework.http.server.reactive: debug
+    #org.springframework.web.reactive: debug
+    #reactor.ipc.netty: debug
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+
+feign:
+  hystrix:
+    enabled: true
+
+#redis start#
+redis:
+  clusterNodes: 10.200.202.170:6379,10.200.202.170:6389,10.200.202.130:6379,10.200.202.130:6389,10.200.202.159:6379,10.200.202.159:6389
+  auth: ehs20200319
+  timeout: 10000 #客户端超时时间单位是毫秒 默认是2000
+  maxIdle: 300 #最大空闲数
+  maxTotal: 1000 #控制一个pool可分配多少个jedis实例,用来替换上面的redis.maxActive,如果是jedis 2.4以后用该属性
+  maxWaitMillis: 1000 #最大建立连接等待时间。如果超过此时间将接到异常。设为-1表示无限制。
+  minEvictableIdleTimeMillis: 300000 #连接的最小空闲时间 默认1800000毫秒(30分钟)
+  numTestsPerEvictionRun: 1024 #每次释放连接的最大数目,默认3
+  timeBetweenEvictionRunsMillis: 30000 #逐出扫描的时间间隔(毫秒) 如果为负数,则不运行逐出线程, 默认-1
+  testOnBorrow: true #是否在从池中取出连接前进行检验,如果检验失败,则从池中去除连接并尝试取出另一个
+  testWhileIdle: true #在空闲时检查有效性, 默认false
+#redis end#
